@@ -21,7 +21,7 @@ const RUNS = [
     name: "main-flow",
     folder: ["Health", "Product catalog", "Access", "Orders"],
     data: "postman/data/customers.csv",
-    expectedAssertions: 44,
+    expectedAssertions: 48,
   },
   {
     name: "order-rules",
@@ -48,12 +48,12 @@ function close(server) {
   });
 }
 
-function runCollection(run, baseUrl, contract) {
+function runCollection(run, baseUrl, contract, collection) {
   return new Promise((done, fail) => {
     const contractFailures = [];
     const runner = newman.run(
       {
-        collection: resolve(root, "postman/collections/commerce-api.postman_collection.json"),
+        collection,
         environment: resolve(root, "postman/environments/local.postman_environment.json"),
         // These two replace the environment file's values: the port is new on each run
         envVar: [
@@ -144,6 +144,13 @@ try {
   const { port } = await listen(server);
   const contractPath = resolve(root, "openapi.json");
   const contract = createOpenApiContract(JSON.parse(await readFile(contractPath, "utf8")));
+  const collectionPath = resolve(root, "postman/collections/commerce-api.postman_collection.json");
+  const collection = JSON.parse(await readFile(collectionPath, "utf8"));
+  const orderSchema = collection.variable.find((variable) => variable.key === "orderSchema");
+  if (!orderSchema) {
+    throw new Error("The collection must define an orderSchema variable for OpenAPI injection.");
+  }
+  orderSchema.value = JSON.stringify(contract.getSchema("OrderResponse"));
 
   const results = [];
   for (const run of RUNS) {
@@ -151,6 +158,7 @@ try {
       run,
       "http://127.0.0.1:" + port,
       contract,
+      collection,
     );
     for (const failure of contractFailures) {
       console.error("OpenAPI contract failure: " + failure);
