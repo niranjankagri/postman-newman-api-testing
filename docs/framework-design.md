@@ -19,7 +19,8 @@ Why the project is built the way it is. The README says what it does and how to 
 | `postman/environments/` | Local address and demo tokens | Postman environment |
 | `postman/data/` | Test data for the two runs | CSV |
 | `scripts/run-newman.js` | Starts the API, runs the collection twice, decides | Newman as a library |
-| `test/` | API tests and checks on the Postman files | `node:test` |
+| `test/` | API, security and Postman-file regression checks | `node:test` |
+| `tests/performance/` | A short API performance smoke test | k6 |
 
 ## 3. The API is split by job
 
@@ -111,10 +112,11 @@ failed the CI step with 2 errors.
 
 ## 10. Limits
 
-- The collection runs on localhost with one user, so it says nothing about load. My
-  [JMeter project](https://github.com/niranjankagri/jmeter-performance-testing) covers that.
+- The k6 run is a short five-user regression smoke test, not a capacity test. My
+  [JMeter project](https://github.com/niranjankagri/jmeter-performance-testing) covers load testing.
+- The security checks cover authentication boundaries and response headers; they are not a penetration test.
 - A schema proves the shape of this API's answers, not that a consumer still works. My
   [Pact project](https://github.com/niranjankagri/pact-contract-testing) covers consumer contracts.
-- `TC-200`'s one-second limit is a sanity check, not a performance test.
+- `TC-200`'s one-second limit remains a per-request sanity check.
 - `npm audit` still lists 11 packages inside Newman 6.2.3, the newest release. Overrides cleared the critical one and 7
   others without breaking anything; the rest need major versions that only Newman can adopt. They're development-only.
