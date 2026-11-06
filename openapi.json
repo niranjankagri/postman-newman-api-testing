@@ -16,6 +16,7 @@
       "get": {
         "operationId": "getHealth",
         "summary": "Check service readiness",
+        "security": [],
         "responses": {
           "200": {
             "description": "The service is ready.",
@@ -34,6 +35,7 @@
       "get": {
         "operationId": "listProducts",
         "summary": "List catalog products",
+        "security": [],
         "responses": {
           "200": {
             "description": "The product catalog.",
@@ -62,6 +64,7 @@
             }
           }
         ],
+        "security": [],
         "responses": {
           "200": {
             "description": "The matching product.",
