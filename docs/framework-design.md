@@ -47,7 +47,7 @@ and each rule would repeat the whole flow.
 `TC-200` sits on the collection, so it runs after every request: the answer is JSON, marked `no-store`, and under a second.
 A new request gets it automatically.
 
-`openapi.json` is the single source for response schemas. The Newman runner listens for every response, finds the matching operation and status, and validates its JSON body with the referenced schema. `additionalProperties: false` makes an unexpected field fail the contract check without copying schemas into the collection. The API responses are still checked when Newman runs; opening the collection directly in Postman runs its functional assertions.
+`openapi.json` is the single source for request and response schemas. The Newman runner resolves its order response schema into the collection at runtime, so `TC-232` and `TC-234` use the contract without a second checked-in copy. It also listens for every response, matches method, path and status, and validates the JSON body. `additionalProperties: false` makes unexpected fields fail the run. Opening the collection directly in Postman runs the functional assertions; `npm run test:collection` supplies the OpenAPI schema checks.
 
 The expected total in `TC-231` comes from the catalog's answer earlier in the run, not from a price copied into the test.
 
