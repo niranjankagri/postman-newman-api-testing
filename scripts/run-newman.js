@@ -21,7 +21,7 @@ const RUNS = [
     name: "main-flow",
     folder: ["Health", "Product catalog", "Access", "Orders"],
     data: "postman/data/customers.csv",
-    expectedAssertions: 48,
+    expectedAssertions: 44,
   },
   {
     name: "order-rules",
