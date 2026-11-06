@@ -5,11 +5,12 @@
 //   the main flow     with customers.csv: one pass through the folders per customer
 //   the order rules   with invalid-orders.csv: one request, one row per rule
 
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import newman from "newman";
 import { createServer } from "../src/server.js";
+import { createOpenApiContract } from "./openapi-contract.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const reports = resolve(root, "artifacts/reports");
@@ -47,9 +48,10 @@ function close(server) {
   });
 }
 
-function runCollection(run, baseUrl) {
+function runCollection(run, baseUrl, contract) {
   return new Promise((done, fail) => {
-    newman.run(
+    const contractFailures = [];
+    const runner = newman.run(
       {
         collection: resolve(root, "postman/collections/commerce-api.postman_collection.json"),
         environment: resolve(root, "postman/environments/local.postman_environment.json"),
@@ -61,37 +63,75 @@ function runCollection(run, baseUrl) {
         folder: run.folder,
         iterationData: resolve(root, run.data),
         reporters: ["cli", "junit"],
-        reporter: { junit: { export: resolve(reports, `newman-${run.name}.xml`) } },
+        reporter: { junit: { export: resolve(reports, "newman-" + run.name + ".xml") } },
         timeoutRequest: 5_000,
         timeoutScript: 5_000,
       },
-      (error, summary) => (error ? fail(error) : done(summary)),
+      (error, summary) => {
+        if (error) {
+          fail(error);
+        } else {
+          done({ summary, contractFailures });
+        }
+      },
     );
+
+    // Newman emits this after each response, so every observed status and body is checked
+    // against the corresponding OpenAPI operation and response schema.
+    runner.on("request", (error, args) => {
+      if (error) {
+        contractFailures.push(error.message);
+        return;
+      }
+
+      try {
+        const body = JSON.parse(args.response.stream.toString("utf8"));
+        const validation = contract.validateResponse({
+          method: args.request.method,
+          url: args.request.url.toString(),
+          responseCode: args.response.code,
+          body,
+        });
+        if (!validation.valid) {
+          contractFailures.push(
+            args.request.method + " " + args.request.url + " HTTP " +
+              args.response.code + ": " + validation.message,
+          );
+        }
+      } catch (validationError) {
+        contractFailures.push(
+          args.request.method + " " + args.request.url + ": " + validationError.message,
+        );
+      }
+    });
   });
 }
 
-// Newman counts only the checks that ran, so a skipped folder or an empty CSV file would look
-// like a pass: the expected count catches that
-function problems(run, stats, failures) {
+// Newman counts only checks that ran, so an expected assertion count catches skipped folders.
+function problems(run, stats, failures, contractFailures) {
   const found = [];
   if (failures > 0) {
-    found.push(`${failures} failures`);
+    found.push(failures + " Newman failures");
+  }
+  if (contractFailures > 0) {
+    found.push(contractFailures + " OpenAPI contract failures");
   }
   if (stats.assertions.total !== run.expectedAssertions) {
-    found.push(`${stats.assertions.total} assertions ran, expected ${run.expectedAssertions}`);
+    found.push(stats.assertions.total + " assertions ran, expected " + run.expectedAssertions);
   }
   return found;
 }
 
 function summaryTable(results) {
   const rows = results.map(
-    ({ name, stats, found }) =>
-      `| ${name} | ${stats.iterations.total} | ${stats.requests.total} | ${stats.assertions.total} | ` +
-      `${stats.assertions.failed} | ${found.length ? found.join(", ") : "passed"} |`,
+    ({ name, stats, contractFailures, found }) =>
+      "| " + name + " | " + stats.iterations.total + " | " + stats.requests.total + " | " +
+      stats.assertions.total + " | " + stats.assertions.failed + " | " + contractFailures +
+      " | " + (found.length ? found.join(", ") : "passed") + " |",
   );
   return [
-    "| Run | Iterations | Requests | Assertions | Failed | Result |",
-    "|---|---:|---:|---:|---:|---|",
+    "| Run | Iterations | Requests | Assertions | Failed | Contract failures | Result |",
+    "|---|---:|---:|---:|---:|---:|---|",
     ...rows,
     "",
   ].join("\n");
@@ -102,14 +142,29 @@ const server = createServer({ token });
 try {
   await mkdir(reports, { recursive: true });
   const { port } = await listen(server);
+  const contractPath = resolve(root, "openapi.json");
+  const contract = createOpenApiContract(JSON.parse(await readFile(contractPath, "utf8")));
 
   const results = [];
   for (const run of RUNS) {
-    const { run: result } = await runCollection(run, `http://127.0.0.1:${port}`);
+    const { summary, contractFailures } = await runCollection(
+      run,
+      "http://127.0.0.1:" + port,
+      contract,
+    );
+    for (const failure of contractFailures) {
+      console.error("OpenAPI contract failure: " + failure);
+    }
     results.push({
       name: run.name,
-      stats: result.stats,
-      found: problems(run, result.stats, result.failures.length),
+      stats: summary.run.stats,
+      contractFailures: contractFailures.length,
+      found: problems(
+        run,
+        summary.run.stats,
+        summary.run.failures.length,
+        contractFailures.length,
+      ),
     });
   }
 
