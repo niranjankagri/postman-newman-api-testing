@@ -71,6 +71,12 @@ export function createOpenApiContract(spec) {
   }
 
   return {
+    // Every documented response, as "METHOD /path status"
+    documentedResponses() {
+      return operations.flatMap(({ method, template, responses }) =>
+        [...responses.keys()].map((statusCode) => `${method} ${template} ${statusCode}`),
+      );
+    },
     getSchema(name) {
       if (!components[name]) {
         throw new Error(`OpenAPI schema not found: ${name}`);
@@ -99,7 +105,11 @@ export function createOpenApiContract(spec) {
         };
       }
       if (validate(body)) {
-        return { valid: true, operationId: operation.template };
+        return {
+          valid: true,
+          operationId: operation.template,
+          documented: `${operation.method} ${operation.template} ${responseCode}`,
+        };
       }
 
       const errors = ajv.errorsText(validate.errors, { separator: "; " });

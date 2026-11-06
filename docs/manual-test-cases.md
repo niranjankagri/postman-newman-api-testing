@@ -12,6 +12,7 @@ case below.
 | TC-131 to TC-134 | Order rules | `test/server.test.js` |
 | TC-141 to TC-143 | Bad requests | `test/server.test.js` |
 | TC-151 to TC-156 | Postman files | `test/collection.test.js` |
+| TC-301 to TC-307 | OpenAPI validator | `test/openapi.test.js` |
 | TC-200 to TC-241 | The collection | `commerce-api.postman_collection.json` |
 
 ## How to run one case
@@ -78,6 +79,21 @@ For a collection case, open the request in Postman and press Send, or run its fo
 | TC-155 | Every `{{variable}}` in a URL, body or auth setting | Defined in the collection, the environment or a CSV file |
 | TC-156 | The two CSV files | Expected columns; 2 and 8 rows |
 
+## OpenAPI validator
+
+| ID | Check | Expected |
+|---|---|---|
+| TC-301 | A valid health answer | Accepted |
+| TC-302 | A valid catalog, then one with a missing name and a text price | Accepted, then refused |
+| TC-303 | A valid order, through nested schema references | Accepted |
+| TC-304 | An error answer with a documented status | Accepted |
+| TC-305 | An undocumented route, then an undocumented status | Both refused |
+| TC-306 | The request schema with quantity 2, then 101 | Accepted, then refused |
+| TC-307 | The list of documented responses | 14, including `413` on orders and `403` on reading an order |
+
+During a Newman run, every response is also checked against `openapi.json`, and the run fails if a documented response never
+appears.
+
 ## The collection
 
 | ID | Request | Expected |
@@ -90,10 +106,12 @@ For a collection case, open the request in Postman and press Send, or run its fo
 | TC-221 | `POST order without a token` | `401` |
 | TC-222 | `POST order with an invalid token` | `403` |
 | TC-223 | `GET order without a token` | `401` |
+| TC-224 | `GET order with an invalid token` | `403` |
 | TC-231 | `POST create order from CSV data` | `201`; name and email from the CSV row; total = saved price x quantity |
-| TC-232 | The same answer | Matches the order schema, with no extra fields |
+| TC-232 | The same answer | Matches the OpenAPI order schema, with no extra fields (runs under `npm run test:collection`, which supplies the schema) |
 | TC-233 | `GET read created order` | `200`, equal to the created order |
-| TC-234 | The same answer | Matches the order schema |
+| TC-234 | The same answer | Matches the OpenAPI order schema (same condition) |
 | TC-235 | `GET unknown order` | `404` |
 | TC-236 | `POST broken JSON` | `400` |
+| TC-237 | `POST oversized body` | `413` |
 | TC-241 | `POST invalid order from CSV data`, once per row of `invalid-orders.csv` | `422` with the row's `expectedError` |
