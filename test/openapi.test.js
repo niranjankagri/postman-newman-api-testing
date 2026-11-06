@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import Ajv from "ajv";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 import { createOpenApiContract } from "../scripts/openapi-contract.js";
@@ -67,6 +68,21 @@ test("tc-304 validates error responses using the documented status", () => {
   });
 
   assert.equal(result.valid, true);
+});
+
+test("tc-306 exposes the valid order request schema from the OpenAPI document", () => {
+  const validate = new Ajv({ allErrors: true }).compile(contract.getSchema("CreateOrderRequest"));
+  const validOrder = {
+    customer: { name: "Taylor Tester", email: "taylor@example.test" },
+    items: [{ productId: "p-100", quantity: 2 }],
+  };
+  const invalidOrder = {
+    ...validOrder,
+    items: [{ productId: "p-100", quantity: 101 }],
+  };
+
+  assert.equal(validate(validOrder), true);
+  assert.equal(validate(invalidOrder), false);
 });
 
 test("tc-305 rejects undocumented routes and response codes", () => {
