@@ -8,9 +8,9 @@ Every run starts its own copy of the API on a free port, so nothing outside the 
 | | |
 |---|---|
 | Collection | 11 requests in 4 folders, plus one data-driven request for the order rules |
-| Checks | 60 Newman assertions per run, plus OpenAPI validation for every response |
+| Checks | 64 Newman assertions per run, plus OpenAPI validation for every response |
 | Data | Two CSV files: customers for the main flow, one row per rule for the invalid orders |
-| Unit tests | 45 API, file and contract-validator checks with `node:test` |
+| Unit tests | 46 API, file and contract-validator checks with `node:test` |
 | Reports | JUnit XML for each run, and a results table in every CI run summary |
 | Found | A `GET //` request crashed the whole API, and a huge quantity made the order total `null`. Both are fixed |
 
@@ -19,17 +19,18 @@ Every run starts its own copy of the API on a free port, so nothing outside the 
 | Layer | Where | Tests |
 |---|---|---:|
 | API behaviour | `test/server.test.js` | 34 |
-| OpenAPI validator | `test/openapi.test.js` | 5 |
+| OpenAPI validator | `test/openapi.test.js` | 6 |
 | Postman files | `test/collection.test.js` | 6 |
-| Main flow | Collection, `customers.csv` (2 iterations, 22 requests) | 44 assertions |
+| Main flow | Collection, `customers.csv` (2 iterations, 22 requests) | 48 assertions |
 | Order rules | Collection, `invalid-orders.csv` (8 iterations) | 16 assertions |
 
 Every test and `pm.test` name starts with its case ID, and each case is written out in
 [docs/manual-test-cases.md](docs/manual-test-cases.md).
 
 The checks overlap on purpose. The API tests reach cases the collection can't easily send, such as a 65 KB body. The
-collection remains easy to open and extend in Postman. During Newman runs, the runner validates every actual response
-against the schemas in `openapi.json`, so the contract is defined once rather than copied into collection variables.
+collection remains easy to open and extend in Postman. `openapi.json` defines the schemas once; during Newman runs, the
+runner injects the resolved order schema for the collection's contract assertions and validates every response against
+the documented operation and status.
 
 ## Run it
 
@@ -82,7 +83,7 @@ Orders live only in memory, and each server starts empty.
 | Request chaining | Collection variables | Later requests use the IDs and prices earlier ones returned |
 | Expected counts | `run-newman.js` | A skipped folder or empty CSV can't pass quietly |
 
-The API request and response schemas are defined in [`openapi.json`](openapi.json) and validated during Newman runs. More in [docs/framework-design.md](docs/framework-design.md).
+The API request and response schemas are defined in [`openapi.json`](openapi.json) and validated during Newman runs. The runner supplies the collection's order schema from this document at runtime; the checked-in collection does not duplicate it. More in [docs/framework-design.md](docs/framework-design.md).
 
 ## Documents
 
