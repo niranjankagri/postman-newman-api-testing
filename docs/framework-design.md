@@ -66,6 +66,9 @@ The cost is one number to update when a check is added, and that's on purpose.
 pasted into a request. An undefined variable is an easy miss, because Postman sends it as literal text and a negative test
 can then pass for the wrong reason.
 
+The HTML report follows the same rule as the build. Its first version looked only at the two runs, so a documented response that
+never appeared gave a failed build and a green page. A report that disagrees with the build is worse than none (`TC-353`).
+
 ## 8. What the work found
 
 **One request stopped the server.** `new URL("//", base)` throws, and it ran outside any `try`, so `GET //` ended the

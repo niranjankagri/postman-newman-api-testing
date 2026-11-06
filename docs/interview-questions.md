@@ -271,7 +271,8 @@ A run has one data file and repeats everything for each row. The rules and the m
 
 `cli`, `json` and `junit` are built in. `html` and the widely used `htmlextra` are separate packages.
 
-**In the project:** JUnit XML per run, kept as a CI artifact, and a Markdown table in the run summary.
+**In the project:** JUnit XML per run and a small HTML report of my own, kept as a CI artifact, and a Markdown table in the run
+summary. The HTML page must agree with the build: `TC-353`.
 
 ### Q45. How do you stop a slow request from hanging CI?
 

@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 import newman from "newman";
 import { createServer } from "../src/server.js";
 import { createOpenApiContract } from "./openapi-contract.js";
+import { renderHtmlReport } from "./html-report.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const reports = resolve(root, "artifacts/reports");
@@ -172,6 +173,12 @@ try {
       name: run.name,
       stats: summary.run.stats,
       contractFailures: contractFailures.length,
+      contractFailureMessages: [...contractFailures],
+      newmanFailures: summary.run.failures.map(({ source: failedRequest, error }) => ({
+        // error.test is the pm.test name, which starts with the case ID
+        name: error?.test ?? failedRequest?.name ?? "Unnamed assertion",
+        message: error?.message ?? String(error),
+      })),
       found: problems(
         run,
         summary.run.stats,
@@ -189,6 +196,10 @@ try {
   const report = summaryTable(results) + "\n" + coverage;
 
   await writeFile(resolve(reports, "summary.md"), report);
+  await writeFile(
+    resolve(reports, "newman-report.html"),
+    renderHtmlReport(results, { summary: coverage.trim(), missing: neverSeen }),
+  );
   console.log(report);
   if (neverSeen.length > 0 || results.some((result) => result.found.length > 0)) {
     process.exitCode = 1;
