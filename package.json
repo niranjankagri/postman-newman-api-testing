@@ -12,7 +12,8 @@
     "start": "node src/server.js",
     "test": "node --test \"test/*.test.js\"",
     "test:collection": "node scripts/run-newman.js",
-    "test:ci": "npm test && npm run test:collection"
+    "test:ci": "npm test && npm run test:collection",
+    "lint:api": "npx --yes @redocly/cli@2.64.1 lint openapi.json --extends=minimal"
   },
   "devDependencies": {
     "newman": "6.2.3",
