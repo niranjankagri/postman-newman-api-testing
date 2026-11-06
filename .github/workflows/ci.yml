@@ -1,0 +1,45 @@
+name: API collection checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  postman-newman:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.19.0
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Check JavaScript syntax
+        run: |
+          node --check src/server.js
+          node --check scripts/run-newman.js
+          node --check test/server.test.js
+          node --check test/collection.test.js
+
+      - name: Run API and Postman collection checks
+        run: npm run test:ci
+
+      - name: Keep JUnit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: newman-junit-report
+          path: artifacts/reports/newman-junit.xml
+          if-no-files-found: ignore
+          retention-days: 7
