@@ -51,6 +51,11 @@ A new request gets it automatically.
 
 The expected total in `TC-231` comes from the catalog's answer earlier in the run, not from a price copied into the test.
 
+OpenAPI validation only sees responses that happen, so a documented response nobody produces would stay unchecked. The first
+version had two: `413` on orders and `403` on reading an order. `TC-224` and `TC-237` now produce them, and the runner fails if
+any of the 14 documented responses isn't seen in a run. Requests aren't validated against the file: `CreateOrderRequest` is
+used only in `TC-306`.
+
 ## 7. A pass that means something
 
 Newman counts only the checks that ran. If a folder were renamed, or a CSV file emptied, it would report fewer checks and
@@ -95,6 +100,11 @@ I put 14 bugs in on purpose and ran both layers against each. All were caught.
 | Rules CSV emptied | TC-156 | Expected count |
 
 So the API tests and Newman run cover different cases, and the OpenAPI schema catches contract drift such as an unexpected field.
+
+Seven more bugs went in after OpenAPI validation was added, and all failed the run: an extra order field, a price sent as text
+(only OpenAPI noticed), a product losing a field, a renamed error key, an undocumented status, an extra field on health, and
+the order schema not being supplied to the collection. The lint is proven too: a spec with a missing version and a broken `$ref`
+failed the CI step with 2 errors.
 
 ## 10. Limits
 

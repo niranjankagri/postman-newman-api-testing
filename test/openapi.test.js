@@ -9,7 +9,7 @@ const spec = JSON.parse(
 );
 const contract = createOpenApiContract(spec);
 
-test("tc-301 accepts a valid health response", () => {
+test("TC-301 accepts a valid health response", () => {
   const result = contract.validateResponse({
     method: "GET",
     url: "http://127.0.0.1:4173/health",
@@ -20,7 +20,7 @@ test("tc-301 accepts a valid health response", () => {
   assert.equal(result.valid, true);
 });
 
-test("tc-302 resolves product schemas and rejects invalid catalog data", () => {
+test("TC-302 resolves product schemas and rejects invalid catalog data", () => {
   const valid = contract.validateResponse({
     method: "GET",
     url: "http://127.0.0.1:4173/api/products",
@@ -40,7 +40,7 @@ test("tc-302 resolves product schemas and rejects invalid catalog data", () => {
   assert.equal(invalid.valid, false);
 });
 
-test("tc-303 validates an order response through nested schema references", () => {
+test("TC-303 validates an order response through nested schema references", () => {
   const result = contract.validateResponse({
     method: "POST",
     url: "http://127.0.0.1:4173/api/orders",
@@ -59,7 +59,7 @@ test("tc-303 validates an order response through nested schema references", () =
   assert.equal(result.valid, true);
 });
 
-test("tc-304 validates error responses using the documented status", () => {
+test("TC-304 validates error responses using the documented status", () => {
   const result = contract.validateResponse({
     method: "POST",
     url: "http://127.0.0.1:4173/api/orders",
@@ -70,22 +70,7 @@ test("tc-304 validates error responses using the documented status", () => {
   assert.equal(result.valid, true);
 });
 
-test("tc-306 exposes the valid order request schema from the OpenAPI document", () => {
-  const validate = new Ajv({ allErrors: true }).compile(contract.getSchema("CreateOrderRequest"));
-  const validOrder = {
-    customer: { name: "Taylor Tester", email: "taylor@example.test" },
-    items: [{ productId: "p-100", quantity: 2 }],
-  };
-  const invalidOrder = {
-    ...validOrder,
-    items: [{ productId: "p-100", quantity: 101 }],
-  };
-
-  assert.equal(validate(validOrder), true);
-  assert.equal(validate(invalidOrder), false);
-});
-
-test("tc-305 rejects undocumented routes and response codes", () => {
+test("TC-305 rejects undocumented routes and response codes", () => {
   const unknownRoute = contract.validateResponse({
     method: "GET",
     url: "http://127.0.0.1:4173/api/unknown",
@@ -101,4 +86,27 @@ test("tc-305 rejects undocumented routes and response codes", () => {
 
   assert.equal(unknownRoute.valid, false);
   assert.equal(unknownStatus.valid, false);
+});
+
+test("TC-306 exposes the valid order request schema from the OpenAPI document", () => {
+  const validate = new Ajv({ allErrors: true }).compile(contract.getSchema("CreateOrderRequest"));
+  const validOrder = {
+    customer: { name: "Taylor Tester", email: "taylor@example.test" },
+    items: [{ productId: "p-100", quantity: 2 }],
+  };
+  const invalidOrder = {
+    ...validOrder,
+    items: [{ productId: "p-100", quantity: 101 }],
+  };
+
+  assert.equal(validate(validOrder), true);
+  assert.equal(validate(invalidOrder), false);
+});
+
+test("TC-307 lists every documented response", () => {
+  const documented = contract.documentedResponses();
+
+  assert.equal(documented.length, 14);
+  assert.ok(documented.includes("POST /api/orders 413"));
+  assert.ok(documented.includes("GET /api/orders/{orderId} 403"));
 });
