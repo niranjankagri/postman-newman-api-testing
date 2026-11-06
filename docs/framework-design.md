@@ -13,7 +13,9 @@ Why the project is built the way it is. The README says what it does and how to 
 | Part | Role | Tools |
 |---|---|---|
 | `src/` | The API under test | Node.js `http`, no runtime dependencies |
-| `postman/collections/` | The requests and their checks | Postman Collection v2.1 |
+| `postman/collections/` | The requests and functional assertions | Postman Collection v2.1 |
+| `openapi.json` | The API request and response contract | OpenAPI 3.0 |
+| `scripts/openapi-contract.js` | Resolves and validates response schemas | Ajv |
 | `postman/environments/` | Local address and demo tokens | Postman environment |
 | `postman/data/` | Test data for the two runs | CSV |
 | `scripts/run-newman.js` | Starts the API, runs the collection twice, decides | Newman as a library |
@@ -31,7 +33,8 @@ routes and the token check. A route says what happens, and anything that goes wr
 
 - start the API on a free port and pass that address in, so two runs can't collide
 - run the collection twice with different data
-- decide the result from the summary, not only from failed checks
+- validate each Newman response against OpenAPI by method, path and status
+- decide the result from failed assertions, contract failures and expected counts
 
 ## 5. Two runs, because a run has one data file
 
@@ -44,8 +47,7 @@ and each rule would repeat the whole flow.
 `TC-200` sits on the collection, so it runs after every request: the answer is JSON, marked `no-store`, and under a second.
 A new request gets it automatically.
 
-The contract checks (`TC-232`, `TC-234`) use JSON Schema with `additionalProperties: false`, so a new field fails the test
-until someone decides it's wanted. The schema is a collection variable, because both requests use it.
+`openapi.json` is the single source for request and response schemas. The Newman runner resolves its order response schema into the collection at runtime, so `TC-232` and `TC-234` use the contract without a second checked-in copy. It also listens for every response, matches method, path and status, and validates the JSON body. `additionalProperties: false` makes unexpected fields fail the run. Opening the collection directly in Postman runs the functional assertions; `npm run test:collection` supplies the OpenAPI schema checks.
 
 The expected total in `TC-231` comes from the catalog's answer earlier in the run, not from a price copied into the test.
 
@@ -75,7 +77,7 @@ checks the columns and the row counts of both CSV files.
 
 I put 14 bugs in on purpose and ran both layers against each. All were caught.
 
-| Bug | Unit tests | Collection |
+| Bug | Unit tests | Newman and OpenAPI |
 |---|---|---|
 | URL guard removed | TC-142 | Not caught |
 | No quantity limit | TC-131 | TC-241 |
@@ -88,11 +90,11 @@ I put 14 bugs in on purpose and ran both layers against each. All were caught.
 | Name not trimmed | TC-123 | Not caught |
 | Out-of-stock product sold | TC-131 | TC-241 |
 | Orders readable without a token | TC-113 | TC-223 |
-| An extra field in the order | Not caught | TC-232, TC-234 |
+| An extra field in the order | Not caught | Rejected by the OpenAPI order schema |
 | An order changes after creation | TC-121 | TC-233, TC-234 |
 | Rules CSV emptied | TC-156 | Expected count |
 
-So neither layer is enough alone, and the extra field shows why the schema check earns its place.
+So the API tests and Newman run cover different cases, and the OpenAPI schema catches contract drift such as an unexpected field.
 
 ## 10. Limits
 
