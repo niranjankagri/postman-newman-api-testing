@@ -36,12 +36,13 @@ the documented operation and status.
 
 ```
 npm ci
+npm run lint:api         lint the OpenAPI contract
 npm run test:ci          unit tests, then the collection
 npm test                 unit tests only
 npm run test:collection  the collection only
 ```
 
-The results table, including OpenAPI contract failures, is printed at the end and saved as `artifacts/reports/summary.md`, next to the JUnit files. `npm run test:collection` performs the full contract validation; running the collection directly in Postman runs its functional assertions.
+The results table, including OpenAPI contract failures, is printed at the end and saved as `artifacts/reports/summary.md`, next to the JUnit files. `npm run test:collection` performs the full contract validation; running the collection directly in Postman runs its functional assertions. `npm run lint:api` checks the OpenAPI document with Redocly CLI, a locked development dependency; CI runs the same lint before the Newman tests.
 
 ## Use it in Postman
 
