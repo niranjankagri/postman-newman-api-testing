@@ -1,0 +1,20 @@
+{
+  "name": "postman-newman-api-testing",
+  "version": "1.0.0",
+  "private": false,
+  "type": "module",
+  "description": "A self-contained API testing showcase using Postman collections and Newman.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test",
+    "test:collection": "node scripts/run-newman.js",
+    "test:ci": "npm test && npm run test:collection"
+  },
+  "devDependencies": {
+    "newman": "6.2.3"
+  }
+}
