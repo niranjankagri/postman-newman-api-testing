@@ -1,0 +1,286 @@
+{
+  "info": {
+    "_postman_id": "8b05da7e-70f8-4a9f-a53d-43ed727fb457",
+    "name": "Commerce Demo API",
+    "description": "Postman collection for the local commerce API. Requests cover health, catalog, authorization, validation, data-driven order creation, and readback.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{authToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:4173"
+    },
+    {
+      "key": "productId",
+      "value": "p-100"
+    },
+    {
+      "key": "lastOrderId",
+      "value": ""
+    },
+    {
+      "key": "invalidToken",
+      "value": "not-a-valid-demo-token"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "GET service health",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/health",
+            "description": "Confirms the local API is ready before the collection continues."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('testHealthReturnsOk', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json()).to.deep.equal({ status: 'ok' });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Product catalog",
+      "item": [
+        {
+          "name": "GET products and save a product ID",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/products"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('testProductCatalogReturnsAvailableProducts', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.data).to.be.an('array').that.is.not.empty;",
+                  "    pm.expect(body.data[0]).to.have.all.keys('id', 'name', 'priceCents', 'inStock');",
+                  "    pm.collectionVariables.set('productId', body.data[0].id);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET product by saved ID",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/products/{{productId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('testProductLookupReturnsRequestedProduct', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().data.id).to.eql(pm.collectionVariables.get('productId'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET unknown product",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/products/does-not-exist"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('testUnknownProductReturnsNotFound', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "    pm.expect(pm.response.json().error).to.eql('Product not found.');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Authorization and validation",
+      "item": [
+        {
+          "name": "POST order without a token",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer\": {\"name\": \"{{customerName}}\", \"email\": \"{{email}}\"},\n  \"items\": [{\"productId\": \"{{productId}}\", \"quantity\": 1}]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/orders"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('testOrderWithoutTokenIsUnauthorized', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "    pm.expect(pm.response.json().error).to.eql('Bearer token is required.');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST order with an invalid token",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{invalidToken}}", "type": "string" }]
+            },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer\": {\"name\": \"{{customerName}}\", \"email\": \"{{email}}\"},\n  \"items\": [{\"productId\": \"{{productId}}\", \"quantity\": 1}]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/orders"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('testOrderWithInvalidTokenIsForbidden', function () {",
+                  "    pm.response.to.have.status(403);",
+                  "    pm.expect(pm.response.json().error).to.eql('Bearer token is invalid.');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST order with an invalid quantity",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer\": {\"name\": \"{{customerName}}\", \"email\": \"{{email}}\"},\n  \"items\": [{\"productId\": \"{{productId}}\", \"quantity\": 0}]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/orders"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('testOrderWithZeroQuantityIsRejected', function () {",
+                  "    pm.response.to.have.status(422);",
+                  "    pm.expect(pm.response.json().error).to.eql('Each item quantity must be a positive integer.');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Create and read an order",
+      "item": [
+        {
+          "name": "POST create order from CSV data",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer\": {\"name\": \"{{customerName}}\", \"email\": \"{{email}}\"},\n  \"items\": [{\"productId\": \"{{productId}}\", \"quantity\": {{quantity}}}]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/orders"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('testOrderCreationReturnsAcceptedOrder', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.data.status).to.eql('accepted');",
+                  "    pm.expect(body.data.customer.name).to.eql(pm.iterationData.get('customerName'));",
+                  "    pm.expect(body.data.totalCents).to.eql(6499 * Number(pm.iterationData.get('quantity')));",
+                  "    pm.collectionVariables.set('lastOrderId', body.data.id);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET read created order",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/orders/{{lastOrderId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('testCreatedOrderCanBeReadBack', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.data.id).to.eql(pm.collectionVariables.get('lastOrderId'));",
+                  "    pm.expect(body.data.status).to.eql('accepted');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
