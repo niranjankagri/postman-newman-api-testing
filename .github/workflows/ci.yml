@@ -1,45 +1,49 @@
-name: API collection checks
+# CI: the unit tests and the Postman collection on every push. The collection runs against a
+# private copy of the API inside the job, so no service, secret or real API is needed.
+name: CI
 
 on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+  schedule:
+    # Weekly, without a code change: a broken dependency shows up within a week
+    - cron: '50 23 * * 5'   # Friday 23:50 UTC
+  workflow_dispatch:
+
+# Grouped per event too, so the weekly run and a push run on main never cancel each other
+concurrency:
+  group: ci-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
-  postman-newman:
+  test:
+    name: Postman collection tests
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - name: Check out source
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22.19.0
+          node-version: '22'
           cache: npm
-
-      - name: Install locked dependencies
+      - name: Install the locked dependencies
         run: npm ci
-
-      - name: Check JavaScript syntax
-        run: |
-          node --check src/server.js
-          node --check scripts/run-newman.js
-          node --check test/server.test.js
-          node --check test/collection.test.js
-
-      - name: Run API and Postman collection checks
+      - name: Unit tests, then the collection with Newman
         run: npm run test:ci
-
-      - name: Keep JUnit report
-        if: always()
-        uses: actions/upload-artifact@v4
+      - name: Results in the job summary
+        if: ${{ !cancelled() }}
+        run: |
+          echo "## Newman" >> "$GITHUB_STEP_SUMMARY"
+          cat artifacts/reports/summary.md >> "$GITHUB_STEP_SUMMARY" || true
+      - name: Keep the JUnit reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
         with:
-          name: newman-junit-report
-          path: artifacts/reports/newman-junit.xml
-          if-no-files-found: ignore
-          retention-days: 7
+          name: junit-newman
+          path: artifacts/reports/newman-*.xml
+          if-no-files-found: warn
+          retention-days: 30

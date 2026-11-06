@@ -1,75 +1,121 @@
-import { mkdir } from "node:fs/promises";
+// Starts a private copy of the API on a free port, runs the collection against it with Newman,
+// and exits with 1 if anything failed. "npm run test:collection" runs this file.
+//
+// The collection runs twice, because each part needs its own CSV file:
+//   the main flow     with customers.csv: one pass through the folders per customer
+//   the order rules   with invalid-orders.csv: one request, one row per rule
+
+import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import newman from "newman";
 import { createServer } from "../src/server.js";
 
-const scriptDirectory = dirname(fileURLToPath(import.meta.url));
-const projectRoot = resolve(scriptDirectory, "..");
-const collection = resolve(
-  projectRoot,
-  "postman/collections/commerce-api.postman_collection.json",
-);
-const dataFile = resolve(projectRoot, "postman/data/customers.csv");
-const reportDirectory = resolve(projectRoot, "artifacts/reports");
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const reports = resolve(root, "artifacts/reports");
 const token = process.env.DEMO_API_TOKEN || "local-demo-token";
+
+const RUNS = [
+  {
+    name: "main-flow",
+    folder: ["Health", "Product catalog", "Access", "Orders"],
+    data: "postman/data/customers.csv",
+    expectedAssertions: 48,
+  },
+  {
+    name: "order-rules",
+    folder: ["Order rules"],
+    data: "postman/data/invalid-orders.csv",
+    expectedAssertions: 16,
+  },
+];
+
+function listen(server) {
+  return new Promise((done, fail) => {
+    server.once("error", fail);
+    server.listen(0, "127.0.0.1", () => {
+      server.off("error", fail);
+      done(server.address());
+    });
+  });
+}
+
+function close(server) {
+  return new Promise((done, fail) => {
+    server.close((error) => (error ? fail(error) : done()));
+    server.closeAllConnections();
+  });
+}
+
+function runCollection(run, baseUrl) {
+  return new Promise((done, fail) => {
+    newman.run(
+      {
+        collection: resolve(root, "postman/collections/commerce-api.postman_collection.json"),
+        environment: resolve(root, "postman/environments/local.postman_environment.json"),
+        // These two replace the environment file's values: the port is new on each run
+        envVar: [
+          { key: "baseUrl", value: baseUrl },
+          { key: "authToken", value: token },
+        ],
+        folder: run.folder,
+        iterationData: resolve(root, run.data),
+        reporters: ["cli", "junit"],
+        reporter: { junit: { export: resolve(reports, `newman-${run.name}.xml`) } },
+        timeoutRequest: 5_000,
+        timeoutScript: 5_000,
+      },
+      (error, summary) => (error ? fail(error) : done(summary)),
+    );
+  });
+}
+
+// Newman counts only the checks that ran, so a skipped folder or an empty CSV file would look
+// like a pass: the expected count catches that
+function problems(run, stats, failures) {
+  const found = [];
+  if (failures > 0) {
+    found.push(`${failures} failures`);
+  }
+  if (stats.assertions.total !== run.expectedAssertions) {
+    found.push(`${stats.assertions.total} assertions ran, expected ${run.expectedAssertions}`);
+  }
+  return found;
+}
+
+function summaryTable(results) {
+  const rows = results.map(
+    ({ name, stats, found }) =>
+      `| ${name} | ${stats.iterations.total} | ${stats.requests.total} | ${stats.assertions.total} | ` +
+      `${stats.assertions.failed} | ${found.length ? found.join(", ") : "passed"} |`,
+  );
+  return [
+    "| Run | Iterations | Requests | Assertions | Failed | Result |",
+    "|---|---:|---:|---:|---:|---|",
+    ...rows,
+    "",
+  ].join("\n");
+}
+
 const server = createServer({ token });
 
-function listen(target) {
-  return new Promise((resolveListen, rejectListen) => {
-    target.once("error", rejectListen);
-    target.listen(0, "127.0.0.1", () => {
-      target.off("error", rejectListen);
-      resolveListen(target.address());
-    });
-  });
-}
-
-function close(target) {
-  return new Promise((resolveClose, rejectClose) => {
-    target.close((error) => (error ? rejectClose(error) : resolveClose()));
-    target.closeAllConnections();
-  });
-}
-
-function runCollection(options) {
-  return new Promise((resolveRun, rejectRun) => {
-    newman.run(options, (error, summary) => {
-      if (error) {
-        rejectRun(error);
-        return;
-      }
-      resolveRun(summary);
-    });
-  });
-}
-
 try {
-  await mkdir(reportDirectory, { recursive: true });
-  const address = await listen(server);
-  const baseUrl = `http://127.0.0.1:${address.port}`;
-  const summary = await runCollection({
-    collection,
-    iterationData: dataFile,
-    reporters: ["cli", "junit"],
-    reporter: {
-      junit: { export: resolve(reportDirectory, "newman-junit.xml") },
-    },
-    envVar: [
-      { key: "baseUrl", value: baseUrl },
-      { key: "authToken", value: token },
-    ],
-    timeout: 30_000,
-    timeoutRequest: 5_000,
-    timeoutScript: 5_000,
-    reporterOptions: { silent: false },
-  });
+  await mkdir(reports, { recursive: true });
+  const { port } = await listen(server);
 
-  const stats = summary.run.stats;
-  console.log(
-    `Newman complete: ${stats.assertions.total} assertions, ${stats.assertions.failed} failed.`,
-  );
-  if (stats.assertions.failed > 0 || summary.run.failures.length > 0) {
+  const results = [];
+  for (const run of RUNS) {
+    const { run: result } = await runCollection(run, `http://127.0.0.1:${port}`);
+    results.push({
+      name: run.name,
+      stats: result.stats,
+      found: problems(run, result.stats, result.failures.length),
+    });
+  }
+
+  await writeFile(resolve(reports, "summary.md"), summaryTable(results));
+  console.log(summaryTable(results));
+  if (results.some((result) => result.found.length > 0)) {
     process.exitCode = 1;
   }
 } catch (error) {
