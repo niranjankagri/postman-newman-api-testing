@@ -1,0 +1,9 @@
+rule,customerName,email,productId,quantity,expectedError
+quantity 0,Alex Morgan,alex@example.test,p-100,0,Each item quantity must be a positive integer.
+negative quantity,Alex Morgan,alex@example.test,p-100,-1,Each item quantity must be a positive integer.
+fractional quantity,Alex Morgan,alex@example.test,p-100,1.5,Each item quantity must be a positive integer.
+quantity over the limit,Alex Morgan,alex@example.test,p-100,101,Each item quantity must be 100 or less.
+unknown product,Alex Morgan,alex@example.test,p-999,1,Product p-999 is unavailable.
+product out of stock,Alex Morgan,alex@example.test,p-300,1,Product p-300 is unavailable.
+one-letter name,A,alex@example.test,p-100,1,Customer name must contain at least 2 characters.
+email without @,Alex Morgan,alex.example.test,p-100,1,Customer email must be valid.

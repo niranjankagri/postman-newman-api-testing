@@ -10,11 +10,18 @@
   },
   "scripts": {
     "start": "node src/server.js",
-    "test": "node --test",
+    "test": "node --test \"test/*.test.js\"",
     "test:collection": "node scripts/run-newman.js",
     "test:ci": "npm test && npm run test:collection"
   },
   "devDependencies": {
     "newman": "6.2.3"
+  },
+  "overrides": {
+    "lodash": "4.18.1",
+    "handlebars": "4.7.10",
+    "underscore": "1.13.8",
+    "flatted": "3.4.4",
+    "node-forge": "1.4.3"
   }
 }

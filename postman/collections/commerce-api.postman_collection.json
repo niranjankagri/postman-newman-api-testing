@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "8b05da7e-70f8-4a9f-a53d-43ed727fb457",
     "name": "Commerce Demo API",
-    "description": "Postman collection for the local commerce API. Requests cover health, catalog, authorization, validation, data-driven order creation, and readback.",
+    "description": "Postman collection for the local commerce API. scripts/run-newman.js runs it twice: the main folders with customers.csv, and the Order rules folder with invalid-orders.csv.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -15,6 +15,22 @@
       }
     ]
   },
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Runs after every request, so these rules can't be forgotten on a new one",
+          "pm.test('TC-200 the answer is uncached JSON, in under a second', function () {",
+          "    pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json');",
+          "    pm.expect(pm.response.headers.get('Cache-Control')).to.eql('no-store');",
+          "    pm.expect(pm.response.responseTime).to.be.below(1000);",
+          "});"
+        ]
+      }
+    }
+  ],
   "variable": [
     {
       "key": "baseUrl",
@@ -25,12 +41,20 @@
       "value": "p-100"
     },
     {
+      "key": "productPriceCents",
+      "value": ""
+    },
+    {
       "key": "lastOrderId",
       "value": ""
     },
     {
-      "key": "invalidToken",
-      "value": "not-a-valid-demo-token"
+      "key": "lastOrder",
+      "value": ""
+    },
+    {
+      "key": "orderSchema",
+      "value": "{\"type\": \"object\", \"required\": [\"data\"], \"properties\": {\"data\": {\"type\": \"object\", \"required\": [\"id\", \"status\", \"customer\", \"items\", \"totalCents\"], \"additionalProperties\": false, \"properties\": {\"id\": {\"type\": \"string\", \"pattern\": \"^ord-[0-9]{4,}$\"}, \"status\": {\"enum\": [\"accepted\"]}, \"customer\": {\"type\": \"object\", \"required\": [\"name\", \"email\"], \"additionalProperties\": false, \"properties\": {\"name\": {\"type\": \"string\"}, \"email\": {\"type\": \"string\"}}}, \"items\": {\"type\": \"array\", \"minItems\": 1, \"items\": {\"type\": \"object\", \"required\": [\"productId\", \"quantity\"], \"additionalProperties\": false, \"properties\": {\"productId\": {\"type\": \"string\"}, \"quantity\": {\"type\": \"integer\", \"minimum\": 1}}}}, \"totalCents\": {\"type\": \"integer\", \"minimum\": 1}}}}}"
     }
   ],
   "item": [
@@ -41,8 +65,8 @@
           "name": "GET service health",
           "request": {
             "method": "GET",
-            "url": "{{baseUrl}}/health",
-            "description": "Confirms the local API is ready before the collection continues."
+            "header": [],
+            "url": "{{baseUrl}}/health"
           },
           "event": [
             {
@@ -50,7 +74,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('testHealthReturnsOk', function () {",
+                  "pm.test('TC-201 health answers ok', function () {",
                   "    pm.response.to.have.status(200);",
                   "    pm.expect(pm.response.json()).to.deep.equal({ status: 'ok' });",
                   "});"
@@ -68,6 +92,7 @@
           "name": "GET products and save a product ID",
           "request": {
             "method": "GET",
+            "header": [],
             "url": "{{baseUrl}}/api/products"
           },
           "event": [
@@ -76,12 +101,14 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('testProductCatalogReturnsAvailableProducts', function () {",
+                  "pm.test('TC-211 the catalog returns products', function () {",
                   "    pm.response.to.have.status(200);",
                   "    const body = pm.response.json();",
                   "    pm.expect(body.data).to.be.an('array').that.is.not.empty;",
                   "    pm.expect(body.data[0]).to.have.all.keys('id', 'name', 'priceCents', 'inStock');",
+                  "    // Chaining: the next request reads this value",
                   "    pm.collectionVariables.set('productId', body.data[0].id);",
+                  "    pm.collectionVariables.set('productPriceCents', body.data[0].priceCents);",
                   "});"
                 ]
               }
@@ -92,6 +119,7 @@
           "name": "GET product by saved ID",
           "request": {
             "method": "GET",
+            "header": [],
             "url": "{{baseUrl}}/api/products/{{productId}}"
           },
           "event": [
@@ -100,7 +128,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('testProductLookupReturnsRequestedProduct', function () {",
+                  "pm.test('TC-212 a product is found by the saved ID', function () {",
                   "    pm.response.to.have.status(200);",
                   "    pm.expect(pm.response.json().data.id).to.eql(pm.collectionVariables.get('productId'));",
                   "});"
@@ -113,6 +141,7 @@
           "name": "GET unknown product",
           "request": {
             "method": "GET",
+            "header": [],
             "url": "{{baseUrl}}/api/products/does-not-exist"
           },
           "event": [
@@ -121,7 +150,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('testUnknownProductReturnsNotFound', function () {",
+                  "pm.test('TC-213 an unknown product is 404', function () {",
                   "    pm.response.to.have.status(404);",
                   "    pm.expect(pm.response.json().error).to.eql('Product not found.');",
                   "});"
@@ -133,20 +162,31 @@
       ]
     },
     {
-      "name": "Authorization and validation",
+      "name": "Access",
       "item": [
         {
           "name": "POST order without a token",
           "request": {
-            "auth": { "type": "noauth" },
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"customer\": {\"name\": \"{{customerName}}\", \"email\": \"{{email}}\"},\n  \"items\": [{\"productId\": \"{{productId}}\", \"quantity\": 1}]\n}",
-              "options": { "raw": { "language": "json" } }
+              "raw": "{\n  \"customer\": {\"name\": \"Taylor Tester\", \"email\": \"taylor@example.test\"},\n  \"items\": [{\"productId\": \"p-100\", \"quantity\": 1}]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
-            "url": "{{baseUrl}}/api/orders"
+            "auth": {
+              "type": "noauth"
+            }
           },
           "event": [
             {
@@ -154,7 +194,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('testOrderWithoutTokenIsUnauthorized', function () {",
+                  "pm.test('TC-221 an order without a token is 401', function () {",
                   "    pm.response.to.have.status(401);",
                   "    pm.expect(pm.response.json().error).to.eql('Bearer token is required.');",
                   "});"
@@ -166,18 +206,33 @@
         {
           "name": "POST order with an invalid token",
           "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [{ "key": "token", "value": "{{invalidToken}}", "type": "string" }]
-            },
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"customer\": {\"name\": \"{{customerName}}\", \"email\": \"{{email}}\"},\n  \"items\": [{\"productId\": \"{{productId}}\", \"quantity\": 1}]\n}",
-              "options": { "raw": { "language": "json" } }
+              "raw": "{\n  \"customer\": {\"name\": \"Taylor Tester\", \"email\": \"taylor@example.test\"},\n  \"items\": [{\"productId\": \"p-100\", \"quantity\": 1}]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
-            "url": "{{baseUrl}}/api/orders"
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{invalidToken}}",
+                  "type": "string"
+                }
+              ]
+            }
           },
           "event": [
             {
@@ -185,7 +240,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('testOrderWithInvalidTokenIsForbidden', function () {",
+                  "pm.test('TC-222 an order with a wrong token is 403', function () {",
                   "    pm.response.to.have.status(403);",
                   "    pm.expect(pm.response.json().error).to.eql('Bearer token is invalid.');",
                   "});"
@@ -195,16 +250,14 @@
           ]
         },
         {
-          "name": "POST order with an invalid quantity",
+          "name": "GET order without a token",
           "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"customer\": {\"name\": \"{{customerName}}\", \"email\": \"{{email}}\"},\n  \"items\": [{\"productId\": \"{{productId}}\", \"quantity\": 0}]\n}",
-              "options": { "raw": { "language": "json" } }
-            },
-            "url": "{{baseUrl}}/api/orders"
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/orders/ord-0001",
+            "auth": {
+              "type": "noauth"
+            }
           },
           "event": [
             {
@@ -212,9 +265,8 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('testOrderWithZeroQuantityIsRejected', function () {",
-                  "    pm.response.to.have.status(422);",
-                  "    pm.expect(pm.response.json().error).to.eql('Each item quantity must be a positive integer.');",
+                  "pm.test('TC-223 reading an order without a token is 401', function () {",
+                  "    pm.response.to.have.status(401);",
                   "});"
                 ]
               }
@@ -224,19 +276,28 @@
       ]
     },
     {
-      "name": "Create and read an order",
+      "name": "Orders",
       "item": [
         {
           "name": "POST create order from CSV data",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"customer\": {\"name\": \"{{customerName}}\", \"email\": \"{{email}}\"},\n  \"items\": [{\"productId\": \"{{productId}}\", \"quantity\": {{quantity}}}]\n}",
-              "options": { "raw": { "language": "json" } }
-            },
-            "url": "{{baseUrl}}/api/orders"
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
           },
           "event": [
             {
@@ -244,13 +305,22 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('testOrderCreationReturnsAcceptedOrder', function () {",
+                  "const quantity = Number(pm.iterationData.get('quantity'));",
+                  "",
+                  "pm.test('TC-231 an order is created from the CSV row', function () {",
                   "    pm.response.to.have.status(201);",
-                  "    const body = pm.response.json();",
-                  "    pm.expect(body.data.status).to.eql('accepted');",
-                  "    pm.expect(body.data.customer.name).to.eql(pm.iterationData.get('customerName'));",
-                  "    pm.expect(body.data.totalCents).to.eql(6499 * Number(pm.iterationData.get('quantity')));",
-                  "    pm.collectionVariables.set('lastOrderId', body.data.id);",
+                  "    const order = pm.response.json().data;",
+                  "    pm.expect(order.status).to.eql('accepted');",
+                  "    pm.expect(order.customer.name).to.eql(pm.iterationData.get('customerName'));",
+                  "    pm.expect(order.customer.email).to.eql(pm.iterationData.get('email'));",
+                  "    // The expected total comes from the catalog answer, not from a copied price",
+                  "    pm.expect(order.totalCents).to.eql(pm.collectionVariables.get('productPriceCents') * quantity);",
+                  "    pm.collectionVariables.set('lastOrderId', order.id);",
+                  "    pm.collectionVariables.set('lastOrder', JSON.stringify(order));",
+                  "});",
+                  "",
+                  "pm.test('TC-232 the order matches the contract', function () {",
+                  "    pm.response.to.have.jsonSchema(JSON.parse(pm.collectionVariables.get('orderSchema')));",
                   "});"
                 ]
               }
@@ -261,6 +331,7 @@
           "name": "GET read created order",
           "request": {
             "method": "GET",
+            "header": [],
             "url": "{{baseUrl}}/api/orders/{{lastOrderId}}"
           },
           "event": [
@@ -269,11 +340,115 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('testCreatedOrderCanBeReadBack', function () {",
+                  "pm.test('TC-233 the order reads back exactly as created', function () {",
                   "    pm.response.to.have.status(200);",
-                  "    const body = pm.response.json();",
-                  "    pm.expect(body.data.id).to.eql(pm.collectionVariables.get('lastOrderId'));",
-                  "    pm.expect(body.data.status).to.eql('accepted');",
+                  "    pm.expect(pm.response.json().data).to.eql(JSON.parse(pm.collectionVariables.get('lastOrder')));",
+                  "});",
+                  "",
+                  "pm.test('TC-234 the read answer matches the contract', function () {",
+                  "    pm.response.to.have.jsonSchema(JSON.parse(pm.collectionVariables.get('orderSchema')));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET unknown order",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/orders/ord-9999"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('TC-235 an unknown order is 404', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "    pm.expect(pm.response.json().error).to.eql('Order not found.');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST broken JSON",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders",
+            "body": {
+              "mode": "raw",
+              "raw": "{invalid-json",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('TC-236 broken JSON is 400', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "    pm.expect(pm.response.json().error).to.eql('Request body must be valid JSON.');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Order rules",
+      "description": "Runs on its own with invalid-orders.csv: one request, one row per rule.",
+      "item": [
+        {
+          "name": "POST invalid order from CSV data",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer\": {\"name\": \"{{customerName}}\", \"email\": \"{{email}}\"},\n  \"items\": [{\"productId\": \"{{productId}}\", \"quantity\": {{quantity}}}]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const rule = pm.iterationData.get('rule');",
+                  "",
+                  "pm.test(`TC-241 refused: ${rule}`, function () {",
+                  "    pm.response.to.have.status(422);",
+                  "    pm.expect(pm.response.json().error).to.eql(pm.iterationData.get('expectedError'));",
                   "});"
                 ]
               }

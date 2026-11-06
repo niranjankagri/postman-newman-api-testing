@@ -1,0 +1,4 @@
+# LF everywhere, so CSV rows and JSON files read the same on Windows and on the CI runner
+* text=auto eol=lf
+*.pdf binary
+*.png binary
