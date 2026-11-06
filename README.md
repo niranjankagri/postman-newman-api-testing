@@ -10,8 +10,8 @@ Every run starts its own copy of the API on a free port, so nothing outside the 
 | Collection | 13 requests in 4 folders, plus one data-driven request for the order rules |
 | Checks | 72 Newman assertions per run, OpenAPI validation of every response, and every documented response must be seen |
 | Data | Two CSV files: customers for the main flow, one row per rule for the invalid orders |
-| Unit tests | 47 API, file and contract-validator checks with `node:test` |
-| Reports | JUnit XML for each run, and a results table in every CI run summary |
+| Unit tests | 49 API, file, contract-validator and report checks with `node:test` |
+| Reports | HTML and JUnit files, plus a results table in every CI run summary |
 | Found | A `GET //` request crashed the whole API, and a huge quantity made the order total `null`. Both are fixed |
 
 ## What is tested
@@ -21,6 +21,7 @@ Every run starts its own copy of the API on a free port, so nothing outside the 
 | API behaviour | `test/server.test.js` | 34 |
 | OpenAPI validator | `test/openapi.test.js` | 7 |
 | Postman files | `test/collection.test.js` | 6 |
+| HTML report | `test/html-report.test.js` | 2 |
 | Main flow | Collection, `customers.csv` (2 iterations, 26 requests) | 56 assertions |
 | Order rules | Collection, `invalid-orders.csv` (8 iterations) | 16 assertions |
 
@@ -42,7 +43,7 @@ npm test                 unit tests only
 npm run test:collection  the collection only
 ```
 
-The results table, including OpenAPI contract failures, is printed at the end and saved as `artifacts/reports/summary.md`, next to the JUnit files. `npm run test:collection` performs the full contract validation; running the collection directly in Postman runs its functional assertions. `npm run lint:api` checks the OpenAPI document with Redocly CLI, a locked development dependency; CI runs the same lint before the Newman tests.
+The results table, including OpenAPI contract failures, is printed at the end and saved as `artifacts/reports/summary.md`, next to the JUnit files. Each collection run also writes a self-contained `artifacts/reports/newman-report.html`; CI uploads it with the JUnit reports. `npm run test:collection` performs the full contract validation; running the collection directly in Postman runs its functional assertions. `npm run lint:api` checks the OpenAPI document with Redocly CLI, a locked development dependency; CI runs the same lint before the Newman tests.
 
 ## Use it in Postman
 
