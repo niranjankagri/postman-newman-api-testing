@@ -32,6 +32,8 @@ jobs:
           cache: npm
       - name: Install the locked dependencies
         run: npm ci
+      - name: Lint OpenAPI contract
+        run: npm run lint:api -- --format=github-actions
       - name: Unit tests, then the collection with Newman
         run: npm run test:ci
       - name: Results in the job summary
