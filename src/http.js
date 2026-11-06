@@ -13,6 +13,7 @@ export class HttpError extends Error {
 export function sendJson(response, statusCode, body) {
   response.writeHead(statusCode, {
     "content-type": "application/json; charset=utf-8",
+    "x-content-type-options": "nosniff",
     // Orders are personal data, so no proxy or browser may keep a copy
     "cache-control": "no-store",
   });

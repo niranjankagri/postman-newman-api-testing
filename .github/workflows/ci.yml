@@ -36,6 +36,33 @@ jobs:
         run: npm run lint:api -- --format=github-actions
       - name: Unit tests, then the collection with Newman
         run: npm run test:ci
+
+      - name: Set up k6
+        uses: grafana/setup-k6-action@v1
+        with:
+          k6-version: '1.8.2'
+
+      - name: Run API performance smoke test
+        run: |
+          mkdir -p artifacts/reports
+          node src/server.js > "$RUNNER_TEMP/demo-api.log" 2>&1 &
+          api_pid=$!
+          trap 'kill "$api_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 20); do
+            if curl --silent --fail http://127.0.0.1:4173/health >/dev/null; then
+              break
+            fi
+            if ! kill -0 "$api_pid" 2>/dev/null; then
+              cat "$RUNNER_TEMP/demo-api.log"
+              exit 1
+            fi
+            sleep 1
+          done
+          if ! curl --silent --fail http://127.0.0.1:4173/health >/dev/null; then
+            cat "$RUNNER_TEMP/demo-api.log"
+            exit 1
+          fi
+          k6 run --summary-export artifacts/reports/k6-summary.json tests/performance/api-smoke.js
       - name: Results in the job summary
         if: ${{ !cancelled() }}
         run: |
@@ -49,5 +76,6 @@ jobs:
           path: |
             artifacts/reports/newman-*.xml
             artifacts/reports/newman-report.html
+            artifacts/reports/k6-summary.json
           if-no-files-found: warn
           retention-days: 30

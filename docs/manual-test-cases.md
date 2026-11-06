@@ -12,6 +12,8 @@ case below.
 | TC-131 to TC-134 | Order rules | `test/server.test.js` |
 | TC-141 to TC-143 | Bad requests | `test/server.test.js` |
 | TC-151 to TC-156 | Postman files | `test/collection.test.js` |
+| TC-161 to TC-163 | API security | `test/security.test.js` |
+| TC-171 to TC-173 | Performance smoke | `tests/performance/api-smoke.js` |
 | TC-301 to TC-307 | OpenAPI validator | `test/openapi.test.js` |
 | TC-351 to TC-353 | HTML report | `test/html-report.test.js` |
 | TC-200 to TC-241 | The collection | `commerce-api.postman_collection.json` |
@@ -41,6 +43,24 @@ For a collection case, open the request in Postman and press Send, or run its fo
 | TC-112 | Post an order with a wrong token | `403`, `Bearer token is invalid.` |
 | TC-113 | Read an order with no token | `401` |
 | TC-114 | Post broken JSON with no token | `401`: the token is checked first |
+
+## API security
+
+| ID | Action | Expected |
+|---|---|---|
+| TC-161 | Read an order using a Basic credential | `403`; generic error; credential is not echoed |
+| TC-162 | Pass a token in the query string instead of the Authorization header | `401`; query token is not accepted or echoed |
+| TC-163 | Check successful and error responses | JSON content type, `no-store`, and `nosniff` headers |
+
+## Performance smoke
+
+| ID | Action | Expected |
+|---|---|---|
+| TC-171 | Request the health endpoint under 5 virtual users for 10 seconds | `200` |
+| TC-172 | Request the product catalog under the same load | `200`; three products |
+| TC-173 | Create authenticated orders under the same load | `201`; checks pass above 99%, failed requests below 1%, p95 below 750 ms |
+
+The k6 scenario is a short regression smoke check, not a capacity or production load test.
 
 ## Orders
 
