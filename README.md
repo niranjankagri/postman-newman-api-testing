@@ -10,6 +10,8 @@ Every run starts its own copy of the API on a free port, so nothing outside the 
 | Collection | 13 requests in 4 folders, plus one data-driven request for the order rules |
 | Checks | 72 Newman assertions per run, OpenAPI validation of every response, and every documented response must be seen |
 | Data | Two CSV files: customers for the main flow, one row per rule for the invalid orders |
+| Security | Regression checks for credential handling and safe JSON response headers |
+| Performance | k6 smoke run: 5 virtual users for 10 seconds, with response and error thresholds |
 | Unit tests | 53 API, file, security, contract-validator and report checks with `node:test` |
 | Reports | HTML, JUnit and k6 JSON, plus a results table in every CI run summary |
 | Found | A `GET //` request crashed the whole API, and a huge quantity made the order total `null`. Both are fixed |
