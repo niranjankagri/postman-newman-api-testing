@@ -46,6 +46,9 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: junit-newman
-          path: artifacts/reports/newman-*.xml
+          name: newman-test-reports
+          path: |
+            artifacts/reports/newman-*.xml
+            artifacts/reports/newman-report.html
           if-no-files-found: warn
           retention-days: 30
