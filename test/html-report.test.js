@@ -25,7 +25,7 @@ test("TC-351 renders a passing report with run totals and response coverage", ()
       requests: { total: 8 },
       assertions: { total: 16, failed: 0 },
     } })],
-    "Documented responses seen: 10 of 10",
+    { summary: "Documented responses seen: 10 of 10", missing: [] },
   );
 
   assert.match(report, /<title>Newman test report<\/title>/);
@@ -51,7 +51,7 @@ test("TC-352 marks failures and escapes their text before adding it to HTML", ()
         assertions: { total: 1, failed: 1 },
       },
     })],
-    "Coverage: <missing>",
+    { summary: "Coverage: <missing>", missing: [] },
   );
 
   assert.match(report, /class="status failed">Failed/);
@@ -61,4 +61,13 @@ test("TC-352 marks failures and escapes their text before adding it to HTML", ()
   assert.match(report, /Coverage: &lt;missing&gt;/);
   assert.doesNotMatch(report, /<script>alert\(1\)<\/script>/);
   assert.doesNotMatch(report, /<img src=x onerror/);
+});
+
+test("TC-353 a documented response nobody produced fails the report, as it fails the build", () => {
+  const report = renderHtmlReport([result()], {
+    summary: "Documented responses seen: 13 of 14 (missing: GET /health 503)",
+    missing: ["GET /health 503"],
+  });
+
+  assert.match(report, /class="status failed">Failed/);
 });

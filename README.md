@@ -10,7 +10,7 @@ Every run starts its own copy of the API on a free port, so nothing outside the 
 | Collection | 13 requests in 4 folders, plus one data-driven request for the order rules |
 | Checks | 72 Newman assertions per run, OpenAPI validation of every response, and every documented response must be seen |
 | Data | Two CSV files: customers for the main flow, one row per rule for the invalid orders |
-| Unit tests | 49 API, file, contract-validator and report checks with `node:test` |
+| Unit tests | 50 API, file, contract-validator and report checks with `node:test` |
 | Reports | HTML and JUnit files, plus a results table in every CI run summary |
 | Found | A `GET //` request crashed the whole API, and a huge quantity made the order total `null`. Both are fixed |
 
@@ -21,7 +21,7 @@ Every run starts its own copy of the API on a free port, so nothing outside the 
 | API behaviour | `test/server.test.js` | 34 |
 | OpenAPI validator | `test/openapi.test.js` | 7 |
 | Postman files | `test/collection.test.js` | 6 |
-| HTML report | `test/html-report.test.js` | 2 |
+| HTML report | `test/html-report.test.js` | 3 |
 | Main flow | Collection, `customers.csv` (2 iterations, 26 requests) | 56 assertions |
 | Order rules | Collection, `invalid-orders.csv` (8 iterations) | 16 assertions |
 

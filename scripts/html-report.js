@@ -32,14 +32,18 @@ function failureDetails(result) {
   return details.length ? '<ul class="failures">' + details.join("") + "</ul>" : "";
 }
 
-/** Render a self-contained HTML summary from the Newman run results. */
+/**
+ * Render a self-contained HTML summary from the Newman run results.
+ * coverage: { summary: text for the page, missing: documented responses nothing produced }
+ */
 export function renderHtmlReport(results, coverage) {
   const assertions = total(results, (result) => result.stats.assertions.total);
   const failedAssertions = total(results, (result) => result.stats.assertions.failed);
   const requests = total(results, (result) => result.stats.requests.total);
   const contractFailures = total(results, (result) => result.contractFailures);
   const failedRuns = results.filter((result) => runStatus(result) === "Failed").length;
-  const overallStatus = failedRuns ? "Failed" : "Passed";
+  // The same rule as the build: a documented response that never appeared fails it
+  const overallStatus = failedRuns || coverage.missing.length ? "Failed" : "Passed";
   const rows = results.map((result) => {
     const status = runStatus(result);
     return [
@@ -109,7 +113,7 @@ export function renderHtmlReport(results, coverage) {
         </table>
       </div>
     </section>
-    <section class="panel"><h2>OpenAPI response coverage</h2><p>${html(coverage)}</p></section>
+    <section class="panel"><h2>OpenAPI response coverage</h2><p>${html(coverage.summary)}</p></section>
     ${details ? '<section class="panel"><h2>Failure details</h2>' + details + "</section>" : ""}
   </main>
 </body>

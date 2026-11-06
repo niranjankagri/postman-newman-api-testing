@@ -175,7 +175,8 @@ try {
       contractFailures: contractFailures.length,
       contractFailureMessages: [...contractFailures],
       newmanFailures: summary.run.failures.map(({ source: failedRequest, error }) => ({
-        name: failedRequest?.name ?? "Unnamed assertion",
+        // error.test is the pm.test name, which starts with the case ID
+        name: error?.test ?? failedRequest?.name ?? "Unnamed assertion",
         message: error?.message ?? String(error),
       })),
       found: problems(
@@ -197,7 +198,7 @@ try {
   await writeFile(resolve(reports, "summary.md"), report);
   await writeFile(
     resolve(reports, "newman-report.html"),
-    renderHtmlReport(results, coverage.trim()),
+    renderHtmlReport(results, { summary: coverage.trim(), missing: neverSeen }),
   );
   console.log(report);
   if (neverSeen.length > 0 || results.some((result) => result.found.length > 0)) {

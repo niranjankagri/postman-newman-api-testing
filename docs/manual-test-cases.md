@@ -13,6 +13,7 @@ case below.
 | TC-141 to TC-143 | Bad requests | `test/server.test.js` |
 | TC-151 to TC-156 | Postman files | `test/collection.test.js` |
 | TC-301 to TC-307 | OpenAPI validator | `test/openapi.test.js` |
+| TC-351 to TC-353 | HTML report | `test/html-report.test.js` |
 | TC-200 to TC-241 | The collection | `commerce-api.postman_collection.json` |
 
 ## How to run one case
@@ -93,6 +94,14 @@ For a collection case, open the request in Postman and press Send, or run its fo
 
 During a Newman run, every response is also checked against `openapi.json`, and the run fails if a documented response never
 appears.
+
+## HTML report
+
+| ID | Check | Expected |
+|---|---|---|
+| TC-351 | Two passing runs | Passed; totals of both runs and the coverage line |
+| TC-352 | A failed run, with HTML in its names and messages | Failed; all text escaped, nothing runs |
+| TC-353 | Passing runs, but a documented response never appeared | Failed, the same as the build |
 
 ## The collection
 
