@@ -58,7 +58,7 @@ export function renderHtmlReport(results, coverage) {
       : "";
   }).filter(Boolean).join("");
 
-  return \`<!doctype html>
+  return `<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -92,27 +92,27 @@ export function renderHtmlReport(results, coverage) {
   <main>
     <h1>Newman test report</h1>
     <p class="muted">Postman collection execution and OpenAPI response contract checks.</p>
-    <span class="status \${overallStatus.toLowerCase()}">\${overallStatus}</span>
+    <span class="status ${overallStatus.toLowerCase()}">${overallStatus}</span>
     <div class="metrics">
-      <div class="metric"><strong>\${results.length}</strong><span>Collection runs</span></div>
-      <div class="metric"><strong>\${requests}</strong><span>Requests</span></div>
-      <div class="metric"><strong>\${assertions}</strong><span>Assertions</span></div>
-      <div class="metric"><strong>\${failedAssertions}</strong><span>Failed assertions</span></div>
-      <div class="metric"><strong>\${contractFailures}</strong><span>Contract failures</span></div>
+      <div class="metric"><strong>${results.length}</strong><span>Collection runs</span></div>
+      <div class="metric"><strong>${requests}</strong><span>Requests</span></div>
+      <div class="metric"><strong>${assertions}</strong><span>Assertions</span></div>
+      <div class="metric"><strong>${failedAssertions}</strong><span>Failed assertions</span></div>
+      <div class="metric"><strong>${contractFailures}</strong><span>Contract failures</span></div>
     </div>
     <section class="panel">
       <h2>Run results</h2>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Run</th><th>Status</th><th>Iterations</th><th>Requests</th><th>Assertions</th><th>Failed</th><th>Contract failures</th></tr></thead>
-          <tbody>\${rows.join("")}</tbody>
+          <tbody>${rows.join("")}</tbody>
         </table>
       </div>
     </section>
-    <section class="panel"><h2>OpenAPI response coverage</h2><p>\${html(coverage)}</p></section>
-    \${details ? '<section class="panel"><h2>Failure details</h2>' + details + "</section>" : ""}
+    <section class="panel"><h2>OpenAPI response coverage</h2><p>${html(coverage)}</p></section>
+    ${details ? '<section class="panel"><h2>Failure details</h2>' + details + "</section>" : ""}
   </main>
 </body>
 </html>
-\`;
+`;
 }
