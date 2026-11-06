@@ -71,6 +71,12 @@ export function createOpenApiContract(spec) {
   }
 
   return {
+    getSchema(name) {
+      if (!components[name]) {
+        throw new Error(`OpenAPI schema not found: ${name}`);
+      }
+      return resolveSchema({ $ref: `#/components/schemas/${name}` }, components);
+    },
     validateResponse({ method, url, responseCode, body }) {
       const parsedUrl = new URL(url);
       const operation = operations.find(
