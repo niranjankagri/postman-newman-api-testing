@@ -64,7 +64,7 @@ The values on each side of a limit. For a quantity of 1 to 100: 0, 1, 100 and 10
 A schema checks the shape of one provider's answer. Consumer contract testing, as in Pact, checks that the provider gives
 each real consumer what it uses. A schema can pass while a consumer breaks.
 
-**In the project:** `TC-232` is schema validation. The design document points to my Pact project for the other kind.
+**In the project:** `openapi.json` checks every response in a Newman run. The design document points to my Pact project for the other kind.
 
 ### Q9. Why does the order of checks in an API matter?
 
@@ -161,7 +161,8 @@ Save a value from one answer with `pm.collectionVariables.set`, then use `{{name
 
 `pm.response.to.have.jsonSchema(schema)`. Set `additionalProperties: false` if a new field should fail the test.
 
-**In the project:** `TC-232`. That setting caught a deliberately leaked field that the unit tests missed.
+**In the project:** `TC-232`, with the schema taken from `openapi.json` at run time, so it isn't copied. That setting caught a
+deliberately leaked field that the unit tests missed.
 
 ### Q25. What is the difference between `pm.expect` and `pm.test`?
 

@@ -21,7 +21,7 @@ const RUNS = [
     name: "main-flow",
     folder: ["Health", "Product catalog", "Access", "Orders"],
     data: "postman/data/customers.csv",
-    expectedAssertions: 48,
+    expectedAssertions: 56,
   },
   {
     name: "order-rules",
@@ -48,7 +48,7 @@ function close(server) {
   });
 }
 
-function runCollection(run, baseUrl, contract, collection) {
+function runCollection(run, baseUrl, contract, collection, seen) {
   return new Promise((done, fail) => {
     const contractFailures = [];
     const runner = newman.run(
@@ -92,7 +92,9 @@ function runCollection(run, baseUrl, contract, collection) {
           responseCode: args.response.code,
           body,
         });
-        if (!validation.valid) {
+        if (validation.valid) {
+          seen.add(validation.documented);
+        } else {
           contractFailures.push(
             args.request.method + " " + args.request.url + " HTTP " +
               args.response.code + ": " + validation.message,
@@ -152,6 +154,8 @@ try {
   }
   orderSchema.value = JSON.stringify(contract.getSchema("OrderResponse"));
 
+  // A response that is documented but never produced is never checked against the contract
+  const seen = new Set();
   const results = [];
   for (const run of RUNS) {
     const { summary, contractFailures } = await runCollection(
@@ -159,6 +163,7 @@ try {
       "http://127.0.0.1:" + port,
       contract,
       collection,
+      seen,
     );
     for (const failure of contractFailures) {
       console.error("OpenAPI contract failure: " + failure);
@@ -176,9 +181,16 @@ try {
     });
   }
 
-  await writeFile(resolve(reports, "summary.md"), summaryTable(results));
-  console.log(summaryTable(results));
-  if (results.some((result) => result.found.length > 0)) {
+  const documented = contract.documentedResponses();
+  const neverSeen = documented.filter((response) => !seen.has(response));
+  const coverage =
+    "Documented responses seen: " + (documented.length - neverSeen.length) + " of " + documented.length +
+    (neverSeen.length ? " (missing: " + neverSeen.join(", ") + ")" : "") + "\n";
+  const report = summaryTable(results) + "\n" + coverage;
+
+  await writeFile(resolve(reports, "summary.md"), report);
+  console.log(report);
+  if (neverSeen.length > 0 || results.some((result) => result.found.length > 0)) {
     process.exitCode = 1;
   }
 } catch (error) {

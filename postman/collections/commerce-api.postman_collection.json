@@ -53,6 +53,10 @@
       "value": ""
     },
     {
+      "key": "largeBody",
+      "value": ""
+    },
+    {
       "key": "orderSchema",
       "value": ""
     }
@@ -272,6 +276,37 @@
               }
             }
           ]
+        },
+        {
+          "name": "GET order with an invalid token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/orders/ord-0001",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{invalidToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('TC-224 reading an order with a wrong token is 403', function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -411,6 +446,52 @@
                   "pm.test('TC-236 broken JSON is 400', function () {",
                   "    pm.response.to.have.status(400);",
                   "    pm.expect(pm.response.json().error).to.eql('Request body must be valid JSON.');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST oversized body",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{{largeBody}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/orders"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// 65 KB is over the 64 KB limit, and too long to keep in the request itself",
+                  "pm.collectionVariables.set('largeBody', 'x'.repeat(65 * 1024));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('TC-237 a body over 64 KB is 413', function () {",
+                  "    pm.response.to.have.status(413);",
+                  "    pm.expect(pm.response.json().error).to.eql('Request body is too large.');",
                   "});"
                 ]
               }
